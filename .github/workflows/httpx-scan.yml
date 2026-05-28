@@ -1,0 +1,127 @@
+name: 🔍 httpx Mass Scan - ATT Subdomains
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  scan:
+    name: Scan chunk_${{ matrix.chunk }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      max-parallel: 40
+      matrix:
+        chunk:
+          - chunk_aa
+          - chunk_ab
+          - chunk_ac
+          - chunk_ad
+          - chunk_ae
+          - chunk_af
+          - chunk_ag
+          - chunk_ah
+          - chunk_ai
+          - chunk_aj
+          - chunk_ak
+          - chunk_al
+          - chunk_am
+          - chunk_an
+          - chunk_ao
+          - chunk_ap
+          - chunk_aq
+          - chunk_ar
+          - chunk_as
+          - chunk_at
+          - chunk_au
+          - chunk_av
+          - chunk_aw
+          - chunk_ax
+          - chunk_ay
+          - chunk_az
+          - chunk_ba
+          - chunk_bb
+          - chunk_bc
+          - chunk_bd
+          - chunk_be
+          - chunk_bf
+          - chunk_bg
+          - chunk_bh
+          - chunk_bi
+          - chunk_bj
+          - chunk_bk
+          - chunk_bl
+          - chunk_bm
+          - chunk_bn
+
+    steps:
+      - name: 📥 Checkout repo
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Install httpx
+        run: |
+          echo "[*] Downloading httpx..."
+          wget -q https://github.com/projectdiscovery/httpx/releases/latest/download/httpx_linux_amd64.zip -O httpx.zip
+          unzip -q httpx.zip httpx
+          chmod +x httpx
+          ./httpx -version
+
+      - name: 🚀 Run httpx on ${{ matrix.chunk }}
+        run: |
+          echo "[*] Scanning chunk: ${{ matrix.chunk }}"
+          echo "[*] Total hosts in chunk: $(wc -l < chunks/${{ matrix.chunk }})"
+
+          ./httpx \
+            -l chunks/${{ matrix.chunk }} \
+            -mc 200 \
+            -c 150 \
+            -timeout 10 \
+            -retries 1 \
+            -silent \
+            -no-color \
+            -o results_${{ matrix.chunk }}.txt
+
+          echo "[+] Done! Found $(wc -l < results_${{ matrix.chunk }}.txt 2>/dev/null || echo 0) live hosts"
+
+      - name: 📤 Upload results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: results-${{ matrix.chunk }}
+          path: results_${{ matrix.chunk }}.txt
+          retention-days: 30
+
+  merge:
+    name: 🔗 Merge All Results
+    runs-on: ubuntu-latest
+    needs: scan
+    if: always()
+    steps:
+      - name: 📥 Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: results-chunk_*
+          merge-multiple: true
+          path: all_results/
+
+      - name: 📊 Merge and stats
+        run: |
+          echo "[*] Merging all results..."
+          cat all_results/*.txt 2>/dev/null | sort -u > att_200ok_final.txt || touch att_200ok_final.txt
+          
+          TOTAL=$(wc -l < att_200ok_final.txt)
+          echo "=============================="
+          echo "✅ Total live hosts (200 OK): $TOTAL"
+          echo "=============================="
+          echo ""
+          echo "📋 Sample results:"
+          head -50 att_200ok_final.txt
+
+      - name: 📤 Upload final merged results
+        uses: actions/upload-artifact@v4
+        with:
+          name: ATT-200OK-FINAL
+          path: att_200ok_final.txt
+          retention-days: 30
