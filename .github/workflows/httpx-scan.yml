@@ -7,7 +7,7 @@ on:
 
 jobs:
   scan:
-    name: Scan chunk_${{ matrix.chunk }}
+    name: Scan ${{ matrix.chunk }}
     runs-on: ubuntu-latest
     timeout-minutes: 340
     strategy:
@@ -62,8 +62,11 @@ jobs:
 
       - name: ⚙️ Install httpx
         run: |
-          echo "[*] Downloading httpx..."
-          wget -q https://github.com/projectdiscovery/httpx/releases/latest/download/httpx_linux_amd64.zip -O httpx.zip
+          echo "[*] Fetching latest httpx version..."
+          VERSION=$(curl -s "https://api.github.com/repos/projectdiscovery/httpx/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
+          CLEAN_VERSION=${VERSION#v}
+          echo "[*] Version: $CLEAN_VERSION"
+          wget -q "https://github.com/projectdiscovery/httpx/releases/download/${VERSION}/httpx_${CLEAN_VERSION}_linux_amd64.zip" -O httpx.zip
           unzip -q httpx.zip httpx
           chmod +x httpx
           ./httpx -version
@@ -81,9 +84,10 @@ jobs:
             -retries 1 \
             -silent \
             -no-color \
-            -o results_${{ matrix.chunk }}.txt
+            -o results_${{ matrix.chunk }}.txt || true
 
-          echo "[+] Done! Found $(wc -l < results_${{ matrix.chunk }}.txt 2>/dev/null || echo 0) live hosts"
+          touch results_${{ matrix.chunk }}.txt
+          echo "[+] Found $(wc -l < results_${{ matrix.chunk }}.txt) live hosts (200 OK)"
 
       - name: 📤 Upload results
         uses: actions/upload-artifact@v4
@@ -110,13 +114,13 @@ jobs:
         run: |
           echo "[*] Merging all results..."
           cat all_results/*.txt 2>/dev/null | sort -u > att_200ok_final.txt || touch att_200ok_final.txt
-          
+
           TOTAL=$(wc -l < att_200ok_final.txt)
           echo "=============================="
           echo "✅ Total live hosts (200 OK): $TOTAL"
           echo "=============================="
           echo ""
-          echo "📋 Sample results:"
+          echo "📋 Sample results (first 50):"
           head -50 att_200ok_final.txt
 
       - name: 📤 Upload final merged results
