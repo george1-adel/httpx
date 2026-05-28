@@ -79,7 +79,7 @@ jobs:
           ./httpx \
             -l chunks/${{ matrix.chunk }} \
             -mc 200 \
-            -c 150 \
+            -t 150 \
             -timeout 10 \
             -retries 1 \
             -silent \
