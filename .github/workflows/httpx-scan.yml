@@ -1,8 +1,6 @@
 name: 🔍 httpx Mass Scan - ATT Subdomains
 
 on:
-  push:
-    branches: [main, master]
   workflow_dispatch:
 
 jobs:
